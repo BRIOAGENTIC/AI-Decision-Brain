@@ -1,12 +1,20 @@
 require('dotenv').config();
 const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const cors = require('cors');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname))); // serves index.html at GET /
+app.use(express.static(path.join(__dirname))); // serves other static assets, if any
+
+let indexHtml = null;
+try {
+  indexHtml = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+} catch (err) {
+  console.warn('index.html not found alongside index.js:', err.message);
+}
 
 const PORT = process.env.PORT || 3000;
 const API_SECRET = process.env.API_SECRET;
@@ -171,6 +179,9 @@ function validateRequestBody(body) {
 }
 
 app.get('/', (req, res) => {
+  if (indexHtml) {
+    return res.status(200).type('html').send(indexHtml);
+  }
   res.status(200).json({ status: 'ok', message: 'Agency Judge API is running. Use /health or /judge.' });
 });
 

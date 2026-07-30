@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agency Judge API Tester</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        input, textarea, button { width: 100%; margin-bottom: 15px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #0056b3; }
+        pre { background: #f8f9fa; padding: 15px; border-radius: 4px; border: 1px solid #ddd; white-space: pre-wrap; word-wrap: break-word; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Agency Judge API Tester</h2>
+    
+    <label for="apiKey">API Secret (x-api-key):</label>
+    <input type="text" id="apiKey" placeholder="Enter your API_SECRET here">
+
+    <label for="jsonBody">Request Body (JSON):</label>
+    <textarea id="jsonBody" rows="10" placeholder='{"type":"invoice", ...}'>
+{
+  "type": "invoice",
+  "client": {
+    "name": "Acme Corp",
+    "tier": "enterprise",
+    "systems_used": "Stripe",
+    "escalation_contact": "boss@acme.com"
+  },
+  "item": {
+    "amount": 5000,
+    "days_overdue": 12
+  }
+}
+    </textarea>
+
+    <button onclick="callAPI()">Send Request & Get Decision</button>
+
+    <h3>API Response:</h3>
+    <pre id="responseOutput">Waiting for request...</pre>
+</div>
+
+<script>
+    async function callAPI() {
+        const apiKey = document.getElementById('apiKey').value;
+        const jsonBody = document.getElementById('jsonBody').value;
+        const outputDiv = document.getElementById('responseOutput');
+
+        // Yahan apna Vercel URL daalein (末 mein /judge lagana mat bhulein)
+        const apiUrl = "https://ai-decision-brain-41kb5rsg2-tejas-43bb.vercel.app/judge";
+
+        outputDiv.textContent = "Loading... Please wait.";
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "x-api-key": apiKey
+                },
+                body: jsonBody
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                outputDiv.textContent = `Error ${response.status}: ${JSON.stringify(data, null, 2)}`;
+            } else {
+                outputDiv.textContent = JSON.stringify(data, null, 2);
+            }
+
+        } catch (error) {
+            outputDiv.textContent = "Network Error: " + error.message;
+        }
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision Brain — automated triage for agency ops</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B1220;
+    --bg-alt:#0E1526;
+    --panel:#121A2C;
+    --panel-2:#0F1626;
+    --border:rgba(233,236,243,0.08);
+    --border-strong:rgba(233,236,243,0.16);
+    --text:#E9ECF3;
+    --muted:#8895AC;
+    --muted-2:#5C6883;
+    --brand:#35C4B6;
+    --brand-dim:rgba(53,196,182,0.14);
+    --low:#4FA382;
+    --low-dim:rgba(79,163,130,0.14);
+    --medium:#E0A83E;
+    --medium-dim:rgba(224,168,62,0.14);
+    --high:#E1544A;
+    --high-dim:rgba(225,84,74,0.14);
+    --mono:'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans:'Inter', system-ui, -apple-system, sans-serif;
+    --radius:10px;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  a{color:inherit;}
+  ::selection{background:var(--brand-dim); color:var(--text);}
+
+  :focus-visible{
+    outline:2px solid var(--brand);
+    outline-offset:3px;
+    border-radius:4px;
+  }
+
+  .bg-grid{
+    position:fixed; inset:0; z-index:-1;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size:64px 64px;
+    -webkit-mask-image:radial-gradient(ellipse 80% 50% at 50% 0%, black 20%, transparent 75%);
+    mask-image:radial-gradient(ellipse 80% 50% at 50% 0%, black 20%, transparent 75%);
+    opacity:0.5;
+  }
+
+  .wrap{max-width:1080px; margin:0 auto; padding:0 24px;}
+
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:12px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--brand);
+    display:flex; align-items:center; gap:8px;
+  }
+  .eyebrow::before{
+    content:''; width:6px; height:6px; border-radius:50%;
+    background:var(--brand); box-shadow:0 0 0 3px var(--brand-dim);
+  }
+
+  /* ---------- header ---------- */
+  header{
+    position:sticky; top:0; z-index:10;
+    background:rgba(11,18,32,0.82);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);
+  }
+  header .wrap{
+    display:flex; align-items:center; justify-content:space-between;
+    height:64px;
+  }
+  .logo{
+    font-family:var(--mono); font-weight:600; font-size:15px;
+    display:flex; align-items:center; gap:9px; text-decoration:none;
+  }
+  .logo .dot{
+    width:9px; height:9px; border-radius:2px; background:var(--brand);
+    box-shadow:0 0 0 4px var(--brand-dim);
+    transform:rotate(45deg);
+  }
+  nav{display:flex; gap:28px;}
+  nav a{
+    font-size:14px; color:var(--muted); text-decoration:none;
+  }
+  nav a:hover{color:var(--text);}
+
+  /* ---------- hero ---------- */
+  .hero{padding:88px 0 72px;}
+  .hero-grid{
+    display:grid; grid-template-columns:1.1fr 1fr; gap:56px; align-items:center;
+  }
+  h1{
+    font-family:var(--mono);
+    font-size:clamp(28px, 3.6vw, 44px);
+    line-height:1.18;
+    font-weight:600;
+    margin:18px 0 20px;
+    letter-spacing:-0.01em;
+  }
+  .hero p.sub{
+    font-size:17px; color:var(--muted); max-width:46ch; margin:0 0 30px;
+  }
+  .cta-row{display:flex; gap:14px; flex-wrap:wrap;}
+  .btn{
+    font-family:var(--sans); font-weight:600; font-size:14.5px;
+    padding:12px 20px; border-radius:8px; text-decoration:none;
+    border:1px solid transparent; cursor:pointer; display:inline-flex; align-items:center; gap:8px;
+  }
+  .btn-primary{background:var(--brand); color:#04211E;}
+  .btn-primary:hover{background:#4ad4c6;}
+  .btn-ghost{background:transparent; border-color:var(--border-strong); color:var(--text);}
+  .btn-ghost:hover{border-color:var(--brand); color:var(--brand);}
+
+  /* ---------- hero signature visual: judgment console ---------- */
+  .console-card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    overflow:hidden;
+    box-shadow:0 20px 60px -20px rgba(0,0,0,0.5);
+  }
+  .console-bar{
+    display:flex; align-items:center; gap:6px;
+    padding:10px 14px; border-bottom:1px solid var(--border);
+    font-family:var(--mono); font-size:11.5px; color:var(--muted-2);
+  }
+  .console-bar span.tag{
+    margin-left:auto; color:var(--muted); letter-spacing:0.06em;
+  }
+  .console-dot{width:8px; height:8px; border-radius:50%; background:var(--border-strong);}
+
+  .console-body{padding:22px; position:relative; min-height:230px;}
+  .ticket{
+    font-family:var(--mono); font-size:12.5px; color:var(--muted);
+    background:var(--panel-2); border:1px dashed var(--border-strong);
+    border-radius:8px; padding:14px 16px;
+    transition:opacity .4s ease;
+  }
+  .ticket .row{display:flex; justify-content:space-between; margin:3px 0;}
+  .ticket .row b{color:var(--text); font-weight:500;}
+
+  .scan-line{
+    position:absolute; left:22px; right:22px; top:22px; height:88px;
+    overflow:hidden; border-radius:8px; pointer-events:none;
+  }
+  .scan-line::after{
+    content:''; position:absolute; top:0; bottom:0; width:40%;
+    background:linear-gradient(90deg, transparent, var(--brand-dim), transparent);
+    animation:sweep 2.4s linear infinite;
+  }
+  @keyframes sweep{
+    from{left:-40%;} to{left:100%;}
+  }
+
+  .verdict-arrow{
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    margin:16px 0; color:var(--muted-2); font-family:var(--mono); font-size:11px;
+  }
+  .verdict-arrow .line{flex:1; height:1px; background:var(--border-strong);}
+
+  .verdict{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    transition:opacity .4s ease;
+  }
+  .pill{
+    font-family:var(--mono); font-size:12px; font-weight:500;
+    padding:5px 11px; border-radius:100px; border:1px solid transparent;
+    text-transform:uppercase; letter-spacing:0.04em;
+  }
+  .pill.low{background:var(--low-dim); color:var(--low); border-color:rgba(79,163,130,0.3);}
+  .pill.medium{background:var(--medium-dim); color:var(--medium); border-color:rgba(224,168,62,0.3);}
+  .pill.high{background:var(--high-dim); color:var(--high); border-color:rgba(225,84,74,0.3);}
+  .pill.action{background:transparent; color:var(--muted); border-color:var(--border-strong);}
+  .verdict-msg{font-size:12.5px; color:var(--muted); margin-top:10px; font-style:italic;}
+
+  /* ---------- section shell ---------- */
+  section{padding:64px 0;}
+  section.alt{background:var(--bg-alt); border-top:1px solid var(--border); border-bottom:1px solid var(--border);}
+  .section-head{max-width:60ch; margin-bottom:40px;}
+  .section-head h2{
+    font-family:var(--mono); font-size:26px; font-weight:600; margin:14px 0 10px;
+  }
+  .section-head p{color:var(--muted); font-size:15.5px; margin:0;}
+
+  /* ---------- how it works ---------- */
+  .stages{display:grid; grid-template-columns:repeat(3, 1fr); gap:20px;}
+  .stage{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:24px;
+  }
+  .stage .num{
+    font-family:var(--mono); font-size:12px; color:var(--brand); letter-spacing:0.1em;
+  }
+  .stage svg{margin:16px 0 14px; display:block;}
+  .stage h3{font-size:16px; margin:0 0 8px;}
+  .stage p{font-size:14px; color:var(--muted); margin:0;}
+
+  /* ---------- console / try it ---------- */
+  .console-layout{
+    display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:start;
+  }
+  .panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:24px;
+  }
+  .panel h3{
+    font-family:var(--mono); font-size:13px; text-transform:uppercase; letter-spacing:0.08em;
+    color:var(--muted); margin:0 0 18px; font-weight:600;
+  }
+
+  .field{margin-bottom:16px;}
+  .field label{
+    display:block; font-size:12.5px; color:var(--muted); margin-bottom:6px;
+  }
+  .field input, .field textarea, .field select{
+    width:100%; background:var(--panel-2); border:1px solid var(--border-strong);
+    color:var(--text); font-family:var(--sans); font-size:14px;
+    padding:10px 12px; border-radius:7px;
+  }
+  .field textarea{resize:vertical; min-height:64px; font-family:var(--sans);}
+  .field input::placeholder, .field textarea::placeholder{color:var(--muted-2);}
+  .field-row{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+
+  .segmented{
+    display:inline-flex; border:1px solid var(--border-strong); border-radius:8px; overflow:hidden;
+  }
+  .segmented button{
+    font-family:var(--mono); font-size:12.5px; padding:9px 16px;
+    background:transparent; border:none; color:var(--muted); cursor:pointer;
+  }
+  .segmented button.active{background:var(--brand-dim); color:var(--brand);}
+
+  .run-btn{
+    width:100%; justify-content:center; margin-top:6px;
+  }
+  .run-btn:disabled{opacity:0.6; cursor:default;}
+
+  .hint{font-size:12px; color:var(--muted-2); margin-top:8px;}
+
+  .result-empty{
+    border:1px dashed var(--border-strong); border-radius:8px;
+    padding:32px 20px; text-align:center; color:var(--muted-2); font-size:13.5px;
+  }
+  .result-loading{
+    display:flex; align-items:center; gap:10px; color:var(--muted);
+    font-family:var(--mono); font-size:13px; padding:20px 4px;
+  }
+  .result-loading .p-dot{
+    width:8px; height:8px; border-radius:50%; background:var(--brand);
+    animation:pulse 1s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:0.3;} 50%{opacity:1;}}
+
+  .result-block .verdict{margin-bottom:12px;}
+  .result-block .verdict-msg{font-size:14px; font-style:normal; color:var(--text); margin:0 0 16px;}
+  pre.json{
+    background:var(--panel-2); border:1px solid var(--border);
+    border-radius:8px; padding:14px 16px; font-family:var(--mono); font-size:12px;
+    color:var(--muted); overflow-x:auto; margin:0;
+  }
+  .result-error{
+    border:1px dashed rgba(225,84,74,0.4); background:var(--high-dim);
+    border-radius:8px; padding:16px; color:var(--text); font-size:13.5px;
+  }
+  .result-error b{color:var(--high); font-family:var(--mono); font-size:12px; display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.06em;}
+
+  /* ---------- integrate ---------- */
+  .code-block{
+    background:var(--panel-2); border:1px solid var(--border); border-radius:8px;
+    padding:16px 18px; font-family:var(--mono); font-size:12.5px; color:var(--muted);
+    overflow-x:auto; white-space:pre;
+  }
+  .code-block .k{color:#8FCBC0;}
+  .code-block .s{color:#E0A83E;}
+  .integrate-grid{display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:24px;}
+  .integrate-grid h4{font-size:14px; margin:0 0 12px; font-family:var(--mono); color:var(--muted);}
+  .note{
+    margin-top:28px; padding:14px 16px; border-left:2px solid var(--brand);
+    background:var(--brand-dim); border-radius:0 8px 8px 0; font-size:13.5px; color:var(--muted);
+  }
+  .note b{color:var(--text);}
+
+  footer{
+    padding:36px 0; border-top:1px solid var(--border);
+    color:var(--muted-2); font-size:13px; font-family:var(--mono);
+  }
+  footer .wrap{display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;}
+
+  @media (max-width:820px){
+    .hero-grid, .console-layout, .stages, .integrate-grid{grid-template-columns:1fr;}
+    nav{display:none;}
+    .field-row{grid-template-columns:1fr;}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .scan-line::after{animation:none; display:none;}
+    .p-dot{animation:none;}
+    html{scroll-behavior:auto;}
+  }
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+
+<header>
+  <div class="wrap">
+    <a class="logo" href="#top"><span class="dot"></span>DECISION BRAIN</a>
+    <nav>
+      <a href="#how">How it works</a>
+      <a href="#try">Try it</a>
+      <a href="#integrate">Integrate</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <div class="eyebrow">Agency ops · automated triage</div>
+        <h1>Every overdue invoice and broken pipeline gets judged before a human has to look.</h1>
+        <p class="sub">Decision Brain reads the ticket, asks Gemini how urgent it really is, and hands back one instruction — remind, alert, escalate, or leave it alone. Automation tools like n8n take it from there.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="#try">Try the console</a>
+          <a class="btn btn-ghost" href="#integrate">See the API</a>
+        </div>
+      </div>
+
+      <div class="console-card" aria-hidden="true">
+        <div class="console-bar">
+          <span class="console-dot"></span><span class="console-dot"></span><span class="console-dot"></span>
+          <span class="tag" id="heroTag">POST /judge</span>
+        </div>
+        <div class="console-body">
+          <div class="scan-line"></div>
+          <div class="ticket" id="heroTicket"></div>
+          <div class="verdict-arrow"><span class="line"></span>judged<span class="line"></span></div>
+          <div class="verdict" id="heroVerdict"></div>
+          <div class="verdict-msg" id="heroMsg"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="alt" id="how">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">The pipeline</div>
+        <h2>Three steps, no manual triage</h2>
+        <p>Each ticket moves through the same short path, whether it's a client invoice or a system that's gone quiet.</p>
+      </div>
+      <div class="stages">
+        <div class="stage">
+          <div class="num">01</div>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#35C4B6" stroke-width="1.6"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+          <h3>Monitor</h3>
+          <p>Your monitoring tool notices something's off — an invoice past due, a sync job gone silent.</p>
+        </div>
+        <div class="stage">
+          <div class="num">02</div>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#35C4B6" stroke-width="1.6"><path d="M12 3v4M4 8l4 1.5M20 8l-4 1.5M6 9l-3 6a4 4 0 0 0 8 0l-3-6M18 9l-3 6a4 4 0 0 0 8 0l-3-6"/><path d="M12 17v4M8 21h8"/></svg>
+          <h3>Judge</h3>
+          <p>Decision Brain sends the client and the ticket to Gemini, and gets back a severity and an action.</p>
+        </div>
+        <div class="stage">
+          <div class="num">03</div>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#35C4B6" stroke-width="1.6"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
+          <h3>Act</h3>
+          <p>n8n — or any automation tool — reads the verdict and fires the right response. No one had to triage it by hand.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRY IT -->
+  <section id="try">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">Live console</div>
+        <h2>Try it live</h2>
+        <p>Send a ticket through your own Decision Brain deployment and watch it come back judged. Nothing here is stored — the request goes straight from your browser to your API.</p>
+      </div>
+
+      <div class="console-layout">
+        <!-- FORM -->
+        <form class="panel" id="judgeForm">
+          <h3>Request</h3>
+
+          <div class="field">
+            <label for="baseUrl">API base URL</label>
+            <input type="text" id="baseUrl" placeholder="Leave blank to use this page's own origin">
+          </div>
+          <div class="field">
+            <label for="apiKey">API key (x-api-key)</label>
+            <input type="password" id="apiKey" placeholder="Your API_SECRET value" required>
+          </div>
+
+          <div class="field">
+            <label>Ticket type</label><br>
+            <div class="segmented" id="typeToggle">
+              <button type="button" data-type="invoice" class="active">Invoice</button>
+              <button type="button" data-type="ops">Ops issue</button>
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="clientName">Client name</label>
+              <input type="text" id="clientName" placeholder="Northwind Creative" required>
+            </div>
+            <div class="field">
+              <label for="clientTier">Tier</label>
+              <input type="text" id="clientTier" placeholder="priority" required>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="systemsUsed">Systems used</label>
+              <input type="text" id="systemsUsed" placeholder="Slack, QuickBooks" required>
+            </div>
+            <div class="field">
+              <label for="escalationContact">Escalation contact</label>
+              <input type="text" id="escalationContact" placeholder="ops-lead@agency.com" required>
+            </div>
+          </div>
+
+          <div id="invoiceFields">
+            <div class="field-row">
+              <div class="field">
+                <label for="amount">Amount</label>
+                <input type="number" id="amount" placeholder="4200" step="0.01">
+              </div>
+              <div class="field">
+                <label for="daysOverdue">Days overdue</label>
+                <input type="number" id="daysOverdue" placeholder="45">
+              </div>
+            </div>
+          </div>
+
+          <div id="opsFields" style="display:none;">
+            <div class="field-row">
+              <div class="field">
+                <label for="system">System</label>
+                <input type="text" id="system" placeholder="Nightly asset sync">
+              </div>
+              <div class="field">
+                <label for="expectedFrequency">Expected frequency</label>
+                <input type="text" id="expectedFrequency" placeholder="every 15 min">
+              </div>
+            </div>
+            <div class="field">
+              <label for="lastChecked">Last checked</label>
+              <input type="text" id="lastChecked" placeholder="2026-07-30T06:00:00Z">
+            </div>
+            <div class="field">
+              <label for="issueDescription">Issue description</label>
+              <textarea id="issueDescription" placeholder="Sync job hasn't reported in 6 hours, no error logged."></textarea>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary run-btn" id="runBtn">Run judgment</button>
+          <div class="hint">Sends the key straight from your browser — handy for testing, not for a public page. Cross-origin calls need CORS enabled on your API.</div>
+        </form>
+
+        <!-- RESULT -->
+        <div class="panel">
+          <h3>Verdict</h3>
+          <div id="resultArea">
+            <div class="result-empty">Run a ticket to see the verdict.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INTEGRATE -->
+  <section class="alt" id="integrate">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">API reference</div>
+        <h2>Wire it into automation</h2>
+        <p>One endpoint, one decision. Point any HTTP-capable tool at it — n8n, Zapier, a cron job — and branch on what comes back.</p>
+      </div>
+
+      <div class="integrate-grid">
+        <div>
+          <h4>Request — POST /judge</h4>
+          <div class="code-block">{
+  <span class="k">"type"</span>: <span class="s">"invoice"</span>,
+  <span class="k">"client"</span>: {
+    <span class="k">"name"</span>: <span class="s">"Northwind Creative"</span>,
+    <span class="k">"tier"</span>: <span class="s">"priority"</span>,
+    <span class="k">"systems_used"</span>: <span class="s">"Slack, QuickBooks"</span>,
+    <span class="k">"escalation_contact"</span>: <span class="s">"ops-lead@agency.com"</span>
+  },
+  <span class="k">"item"</span>: {
+    <span class="k">"amount"</span>: 4200,
+    <span class="k">"days_overdue"</span>: 45
+  }
+}</div>
+        </div>
+        <div>
+          <h4>Response</h4>
+          <div class="code-block">{
+  <span class="k">"severity"</span>: <span class="s">"high"</span>,
+  <span class="k">"action"</span>: <span class="s">"escalate"</span>,
+  <span class="k">"message"</span>: <span class="s">"45 days overdue on a priority account — loop in the escalation contact."</span>
+}</div>
+        </div>
+      </div>
+
+      <div class="note">
+        <b>Header required:</b> every call to <code>/judge</code> needs <code>x-api-key</code> set to your <code>API_SECRET</code>. <code>GET /health</code> is open, for uptime checks.
+      </div>
+      <div class="note">
+        <b>In n8n:</b> an HTTP Request node calls <code>/judge</code> with the ticket, a Switch node branches on <code>severity</code> or <code>action</code>, and Slack / Gmail / whatever node fires from there.
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Decision Brain — built on Gemini</span>
+    <span>a triage layer, not a replacement for judgment</span>
+  </div>
+</footer>
+
+<script>
+  // ---------- hero animated example cycle (decorative only) ----------
+  const heroExamples = [
+    {
+      ticket: {"Client":"Northwind Creative","Tier":"priority","Amount":"$4,200","Days overdue":"45"},
+      severity: "high", action: "escalate",
+      message: "45 days overdue on a priority account — loop in the escalation contact."
+    },
+    {
+      ticket: {"Client":"Alderwood Studio","System":"Nightly asset sync","Last checked":"6h ago"},
+      severity: "medium", action: "slack_alert",
+      message: "Sync job's gone quiet for six hours — worth a nudge before it compounds."
+    },
+    {
+      ticket: {"Client":"Bramble & Co","Tier":"standard","Amount":"$310","Days overdue":"3"},
+      severity: "low", action: "reminder",
+      message: "Three days overdue on a small standard-tier invoice — a reminder will do."
+    }
+  ];
+  let heroIdx = 0;
+  const heroTicketEl = document.getElementById('heroTicket');
+  const heroVerdictEl = document.getElementById('heroVerdict');
+  const heroMsgEl = document.getElementById('heroMsg');
+  const heroTagEl = document.getElementById('heroTag');
+
+  function renderHero(i){
+    const ex = heroExamples[i];
+    heroTicketEl.style.opacity = 0;
+    heroVerdictEl.style.opacity = 0;
+    setTimeout(() => {
+      heroTicketEl.innerHTML = Object.entries(ex.ticket).map(([k,v]) =>
+        `<div class="row"><span>${k}</span><b>${v}</b></div>`).join('');
+      heroVerdictEl.innerHTML =
+        `<span class="pill ${ex.severity}">${ex.severity}</span><span class="pill action">${ex.action}</span>`;
+      heroMsgEl.textContent = '"' + ex.message + '"';
+      heroTagEl.textContent = ex.ticket.System ? 'POST /judge · ops' : 'POST /judge · invoice';
+      heroTicketEl.style.opacity = 1;
+      heroVerdictEl.style.opacity = 1;
+    }, 220);
+  }
+  renderHero(0);
+  setInterval(() => {
+    heroIdx = (heroIdx + 1) % heroExamples.length;
+    renderHero(heroIdx);
+  }, 4200);
+
+  // ---------- ticket type toggle ----------
+  const typeToggle = document.getElementById('typeToggle');
+  const invoiceFields = document.getElementById('invoiceFields');
+  const opsFields = document.getElementById('opsFields');
+  let currentType = 'invoice';
+
+  typeToggle.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    currentType = btn.dataset.type;
+    [...typeToggle.children].forEach(b => b.classList.toggle('active', b === btn));
+    invoiceFields.style.display = currentType === 'invoice' ? 'block' : 'none';
+    opsFields.style.display = currentType === 'ops' ? 'block' : 'none';
+  });
+
+  // ---------- live demo form ----------
+  const form = document.getElementById('judgeForm');
+  const runBtn = document.getElementById('runBtn');
+  const resultArea = document.getElementById('resultArea');
+
+  function pillClass(sev){
+    return ['low','medium','high'].includes(sev) ? sev : 'medium';
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const baseUrlRaw = document.getElementById('baseUrl').value.trim();
+    const apiKey = document.getElementById('apiKey').value;
+    const base = baseUrlRaw ? baseUrlRaw.replace(/\/+$/,'') : '';
+    const url = base + '/judge';
+
+    const client = {
+      name: document.getElementById('clientName').value,
+      tier: document.getElementById('clientTier').value,
+      systems_used: document.getElementById('systemsUsed').value,
+      escalation_contact: document.getElementById('escalationContact').value
+    };
+
+    let item;
+    if(currentType === 'invoice'){
+      item = {
+        amount: parseFloat(document.getElementById('amount').value),
+        days_overdue: parseInt(document.getElementById('daysOverdue').value, 10)
+      };
+    } else {
+      item = {
+        system: document.getElementById('system').value,
+        expected_frequency: document.getElementById('expectedFrequency').value,
+        last_checked: document.getElementById('lastChecked').value,
+        issue_description: document.getElementById('issueDescription').value
+      };
+    }
+
+    runBtn.disabled = true;
+    runBtn.textContent = 'Judging…';
+    resultArea.innerHTML = `<div class="result-loading"><span class="p-dot"></span>Sending ticket to Decision Brain…</div>`;
+
+    try{
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey
+        },
+        body: JSON.stringify({ type: currentType, client, item })
+      });
+
+      let data = null;
+      try{ data = await res.json(); } catch(_){}
+
+      if(!res.ok){
+        const msg = (data && data.error) ? data.error : `Request failed with status ${res.status}.`;
+        resultArea.innerHTML = `<div class="result-error"><b>${res.status || 'Error'}</b>${msg}</div>`;
+      } else {
+        const sev = pillClass(data.severity);
+        resultArea.innerHTML = `
+          <div class="result-block">
+            <div class="verdict">
+              <span class="pill ${sev}">${data.severity}</span>
+              <span class="pill action">${data.action}</span>
+            </div>
+            <p class="verdict-msg">${data.message}</p>
+            <pre class="json">${JSON.stringify(data, null, 2)}</pre>
+          </div>`;
+      }
+    } catch(err){
+      resultArea.innerHTML = `<div class="result-error"><b>Couldn't reach the API</b>Check the base URL and make sure CORS is enabled if it's on a different origin. (${err.message})</div>`;
+    } finally {
+      runBtn.disabled = false;
+      runBtn.textContent = 'Run judgment';
+    }
+  });
+</script>
+
+</body>
+</html>

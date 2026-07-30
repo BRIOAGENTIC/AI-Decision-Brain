@@ -1,0 +1,17 @@
+{
+  "name": "agency-judge-api",
+  "version": "1.0.0",
+  "description": "Decision brain for an agency monitoring system. Uses Google Gemini to judge the urgency of overdue invoices or ops-health issues.",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}

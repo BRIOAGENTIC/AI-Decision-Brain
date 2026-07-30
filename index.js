@@ -168,6 +168,10 @@ function validateRequestBody(body) {
   return null;
 }
 
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'Agency Judge API is running. Use /health or /judge.' });
+});
+
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
